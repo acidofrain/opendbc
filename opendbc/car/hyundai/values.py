@@ -578,7 +578,12 @@ class CAR(Platforms):
       HyundaiCarDocs("Kia Carnival (with HDA II) 2025-26", "Highway Driving Assist II", car_parts=CarParts.common([CarHarness.hyundai_q])),
     ],
     CarSpecs(mass=2087, wheelbase=3.09, steerRatio=14.23),
-    flags=HyundaiFlags.UNSUPPORTED_LONGITUDINAL | HyundaiFlags.CANFD_ALT_BUTTONS | HyundaiFlags.CANFD_RADAR_SCC,
+    # Lateral+BSM only port: disable the openpilot-long offer via CANFD_NO_RADAR_DISABLE.
+    # UNSUPPORTED_LONGITUDINAL is a CAN-only flag (interface.py gates it in the non-CANFD
+    # branch); on this CAN FD car it was inert (long stayed available) and tripped
+    # test_can_features. CANFD_NO_RADAR_DISABLE is the CAN FD idiom that sets
+    # alphaLongitudinalAvailable = False.
+    flags=HyundaiFlags.CANFD_NO_RADAR_DISABLE | HyundaiFlags.CANFD_ALT_BUTTONS | HyundaiFlags.CANFD_RADAR_SCC,
   )
 
   # Genesis
