@@ -54,6 +54,20 @@
   HYUNDAI_CANFD_COMMON_RX_CHECKS(pt_bus)                                                                                                         \
   {.msg = {{0x1aa, (pt_bus), 16, 50U, .ignore_checksum = true, .max_counter = 0xffU, .ignore_quality_flag = true}, { 0 }, { 0 }}},  \
 
+// Kia Carnival 2025-26 (ICE) also transmits ACCELERATOR_ALT (0x105) as a constant zero-filled
+// frame with no checksum/counter. The gas OR-group latches whichever member arrives first after
+// safety-mode init (get_addr_check_index) and never re-latches; latching the inert 0x105 leaves
+// valid_checksum permanently false -> safetyRxChecksInvalid -> controls blocked for the whole
+// drive (~50% of starts, a per-boot race against the real 0x100). Confirmed by replaying real
+// drive CAN through this safety code. This variant drops 0x105 from the gas group; hybrid
+// Carnivals use 0x105 as their real gas message and must NOT use it.
+#define HYUNDAI_CANFD_COMMON_NO_ALT_GAS_RX_CHECKS(pt_bus)                                                               \
+  {.msg = {{0x35, (pt_bus), 32, 100U, .max_counter = 0xffU, .ignore_quality_flag = true},                  \
+           {0x100, (pt_bus), 32, 100U, .max_counter = 0xffU, .ignore_quality_flag = true}, { 0 }}},        \
+  {.msg = {{0x175, (pt_bus), 24, 50U, .max_counter = 0xffU, .ignore_quality_flag = true}, { 0 }, { 0 }}},  \
+  {.msg = {{0xa0, (pt_bus), 24, 100U, .max_counter = 0xffU, .ignore_quality_flag = true}, { 0 }, { 0 }}},  \
+  {.msg = {{0xea, (pt_bus), 24, 100U, .max_counter = 0xffU, .ignore_quality_flag = true}, { 0 }, { 0 }}},  \
+
 // SCC_CONTROL (from ADAS unit or camera)
 #define HYUNDAI_CANFD_SCC_ADDR_CHECK(scc_bus)                                                                            \
   {.msg = {{0x1a0, (scc_bus), 32, 50U, .max_counter = 0xffU, .ignore_quality_flag = true}, { 0 }, { 0 }}},  \
@@ -380,8 +394,11 @@ static safety_config hyundai_canfd_init(uint16_t param) {
         HYUNDAI_CANFD_SCC_ADDR_CHECK(1)
       };
 
+      // Uses the no-0x105 gas group: the Carnival 2025-26 ICE (only LKA-steering ALT_BUTTONS
+      // car) transmits an inert zero-filled 0x105 that must not win the gas-group latch.
       static RxCheck hyundai_canfd_lka_steer_msg_alt_buttons_rx_checks[] = {
-        HYUNDAI_CANFD_ALT_BUTTONS_RX_CHECKS(1)
+        HYUNDAI_CANFD_COMMON_NO_ALT_GAS_RX_CHECKS(1)
+        {.msg = {{0x1aa, 1, 16, 50U, .ignore_checksum = true, .max_counter = 0xffU, .ignore_quality_flag = true}, { 0 }, { 0 }}},
         HYUNDAI_CANFD_SCC_ADDR_CHECK(1)
       };
 
