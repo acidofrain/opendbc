@@ -56,6 +56,23 @@ class CarControllerParams:
     else:
       self.STEER_MAX = 384
 
+    # Carnival 2025-26: the blanket CAN FD cap of 270 is not per-car measured, and on this
+    # platform it is the binding constraint on cornering. Field evidence (2026-08 trip, 10.9h
+    # engaged, see device-logs/2026-08-trip): the controller pinned the command at exactly -270
+    # for 11.5 continuous seconds while the car under-steered out of two curves and the driver
+    # had to take over; 3.84% of all cornering samples sit at >=99% of the cap. Measured
+    # delivery at the cap was 2.77 m/s^2 against a 3.41 m/s^2 request -- and 3.41 is within
+    # openpilot's own planner ceiling (ISO_LATERAL_ACCEL + road roll ~3.6), so the request was
+    # legitimate and only the cap prevented it. 270 * 3.41/2.77 ~= 332 -> 330.
+    #
+    # Scoped to this platform deliberately: the evidence is Carnival-specific, and the CAN FD
+    # branch above is shared by every CAN FD HKG car. Raising only the magnitude, NOT
+    # STEER_DELTA_UP -- the rate limit drives ISO 11270 jerk and is not what saturated here.
+    # Raising STEER_MAX alone *lowers* computed jerk (it is the denominator in
+    # test_lateral_limits.calculate_0_5s_jerk), so no test threshold needs relaxing.
+    if CP.carFingerprint == CAR.KIA_CARNIVAL_2025:
+      self.STEER_MAX = 330
+
 
 class HyundaiSafetyFlags(IntFlag):
   EV_GAS = 1

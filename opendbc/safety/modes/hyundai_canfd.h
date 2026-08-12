@@ -168,8 +168,17 @@ static void hyundai_canfd_rx_hook(const CANPacket_t *msg) {
 }
 
 static bool hyundai_canfd_tx_hook(const CANPacket_t *msg) {
+  // Kia Carnival 2025-26 ICE -- the only LKA-steering + ALT_BUTTONS non-longitudinal CAN FD
+  // car, same discriminator the 0x105 gas-group fix uses -- runs a higher steering magnitude
+  // cap. The blanket 270 is not a per-car measured limit and was the binding constraint on
+  // this platform: field logs show the command pinned at exactly -270 for 11.5 continuous
+  // seconds while the car under-steered out of curves. Rationale and numbers live in
+  // opendbc/car/hyundai/values.py next to STEER_MAX; the two MUST stay in sync or the panda
+  // will reject what the controller sends. Magnitude only -- rate limits below are unchanged.
+  const bool carnival_2025_26 = hyundai_canfd_lka_steer_msg && hyundai_canfd_alt_buttons && !hyundai_longitudinal;
+
   const TorqueSteeringLimits HYUNDAI_CANFD_STEERING_LIMITS = {
-    .max_torque = 270,
+    .max_torque = carnival_2025_26 ? 330 : 270,
     .max_rt_delta = 112,
     .max_rate_up = 2,
     .max_rate_down = 3,
